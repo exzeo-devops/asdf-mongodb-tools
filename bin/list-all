@@ -7,15 +7,46 @@ releases_path="https://s3.amazonaws.com/downloads.mongodb.org/tools/db/full.json
 cmd="curl --retry 10 --retry-delay 2 -s $releases_path"
 
 get_os_name() {
+  local id version_id codename
+
   if command -v lsb_release &>/dev/null; then
-    lsb_release -si | awk '{print tolower($0)}'
+    id=$(lsb_release -si | awk '{print tolower($0)}')
+    version_id=$(lsb_release -sr | tr -d '.')
   elif [ -f /etc/os-release ]; then
-    grep -i '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"' | awk '{print tolower($0)}'
+    id=$(grep -i '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+    version_id=$(grep -i '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"' | tr -d '.')
   elif [ -f /etc/redhat-release ]; then
-    awk '{print tolower($1)}' /etc/redhat-release
+    id=$(awk '{print tolower($1)}' /etc/redhat-release)
+    version_id=$(awk '{print $3}' /etc/redhat-release | tr -d '.')
   else
-    uname -s | awk '{print tolower($0)}'
+    id=$(uname -s | awk '{print tolower($0)}')
+    version_id=""
   fi
+
+  case "$id" in
+	  darwin)
+			echo "macos"
+			;;
+    ubuntu)
+      echo "ubuntu${version_id}"
+      ;;
+    debian)
+      echo "debian${version_id}"
+      ;;
+    rhel|redhat)
+      echo "rhel${version_id}"
+      ;;
+    centos)
+      echo "rhel${version_id}"  # Mongo tools usually map centos under rhel
+      ;;
+    amzn|amazon)
+      echo "amazon${version_id}"
+      ;;
+    *)
+      echo "Not supported OS: $id"
+			exit 1
+      ;;
+  esac
 }
 
 get_arch() {
@@ -40,28 +71,6 @@ get_arch() {
   esac
 }
 
-get_os_version() {
-  local version
-
-  if command -v lsb_release &>/dev/null; then
-    version=$(lsb_release -sr)
-  elif [ -f /etc/os-release ]; then
-    version=$(grep -i '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
-  elif [ -f /etc/redhat-release ]; then
-    version=$(awk '{print $3}' /etc/redhat-release)
-  else
-    version=$(uname -r)
-  fi
-
-  echo "$version" | tr -cd '[:alnum:]'
-}
-
-function get_name() {
-	os_name=$(get_os_name)
-	os_version=$(get_os_version)
-	echo "$os_name$os_version"
-}
-
 # Clean and correct version sorting
 function sort_versions() {
   awk -F. '
@@ -75,7 +84,7 @@ function sort_versions() {
   ' | sort | awk '{print $2}' | paste -sd' ' -
 }
 
-name=$(get_name)
+name=$(get_os_name)
 arch=$(get_arch)
 
 echo "OS: $name"
