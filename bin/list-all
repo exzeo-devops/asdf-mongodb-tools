@@ -78,6 +78,9 @@ function sort_versions() {
 name=$(get_name)
 arch=$(get_arch)
 
+echo "OS: $name"
+echo "Arch: $arch"
+
 # Get versions that have a download matching the OS
 versions=$(eval "$cmd" | jq -r --arg name "$name" --arg arch "$arch" '
   .versions[]
