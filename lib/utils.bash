@@ -155,7 +155,7 @@ install_version() {
   tar -zxf ${download_path} --directory $tmp_download_dir
 
   echo "Listing folder"
-  ls $tmp_download_dir
+  ls $tmp_download_dir/${filename%.*}
 
   # cp ${tmp_download_dir}/bin ${bin_install_path}
 }
