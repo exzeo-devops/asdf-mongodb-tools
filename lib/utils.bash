@@ -3,9 +3,7 @@
 set -euo pipefail
 
 # TODO: Ensure this is the correct GitHub homepage where releases can be downloaded for <YOUR TOOL>.
-GH_REPO="<TOOL REPO>"
 TOOL_NAME="mongodb-tools"
-TOOL_TEST="<TOOL CHECK>"
 
 MONGODB_VERSION_URL="https://s3.amazonaws.com/downloads.mongodb.org/tools/db/full.json"
 
@@ -126,7 +124,7 @@ install_version() {
 
 	local bin_install_path="$install_path/bin"
 	local download_url=$(get_download_url "$version")
-  local filename=$(get_filename $download_url)
+  local filename=$(basename $download_url)
 
   local tmp_download_dir=$(mktemp -d -t mongodb-tools_XXXXXX)
   local download_path="$tmp_download_dir/$filename"
