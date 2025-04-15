@@ -126,12 +126,7 @@ install_version() {
 
 	local bin_install_path="$install_path/bin"
 	local download_url=$(get_download_url "$version")
-
-  if [ "$TMPDIR" = "" ]; then
-    local tmp_download_dir=$(mktemp -d -t mongodb-tools_XXXXXX)
-  else
-    local tmp_download_dir=$TMPDIR
-  fi
+  local tmp_download_dir=$(mktemp -d -t mongodb-tools_XXXXXX)
 
   echo "Downloading mongodb tools from ${download_url} to ${tmp_download_dir}"
 
