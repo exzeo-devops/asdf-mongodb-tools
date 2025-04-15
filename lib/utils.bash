@@ -126,12 +126,15 @@ install_version() {
 
 	local bin_install_path="$install_path/bin"
 	local download_url=$(get_download_url "$version")
-  local tmp_download_dir=$(mktemp -d -t mongodb-tools_XXXXXX)
+  local filename=$(get_filename $download_url)
 
-  echo "Downloading mongodb tools from ${download_url} to ${tmp_download_dir}"
+  local tmp_download_dir=$(mktemp -d -t mongodb-tools_XXXXXX)
+  local download_path="$tmp_download_dir/$filename"
+
+  echo "Downloading mongodb tools from ${download_url} to ${download_path}"
 
   # capture error message from curl in memory
-  curl --retry 10 --retry-delay 2 -fLo $tmp_download_dir $download_url 2> >(tee /tmp/curl_error >&2)
+  curl --retry 10 --retry-delay 2 -fLo $download_path $download_url 2> >(tee /tmp/curl_error >&2)
   ERROR=$(</tmp/curl_error)
 
   # retry with http1.1 if http2 error
