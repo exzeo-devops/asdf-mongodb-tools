@@ -1,101 +1,10 @@
-set -e
+#!/usr/bin/env bash
 
-set -e
-set -o pipefail
+set -euo pipefail
 
-releases_path="https://s3.amazonaws.com/downloads.mongodb.org/tools/db/full.json"
-cmd="curl --retry 10 --retry-delay 2 -s $releases_path"
+current_script_path=${BASH_SOURCE[0]}
+plugin_dir=$(dirname "$(dirname "$current_script_path")")
 
-get_os_name() {
-  local id version_id codename
+source "${plugin_dir}/lib/utils.bash"
 
-  if command -v lsb_release &>/dev/null; then
-    id=$(lsb_release -si | awk '{print tolower($0)}')
-    version_id=$(lsb_release -sr | tr -d '.')
-  elif [ -f /etc/os-release ]; then
-    id=$(grep -i '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
-    version_id=$(grep -i '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"' | tr -d '.')
-  elif [ -f /etc/redhat-release ]; then
-    id=$(awk '{print tolower($1)}' /etc/redhat-release)
-    version_id=$(awk '{print $3}' /etc/redhat-release | tr -d '.')
-  else
-    id=$(uname -s | awk '{print tolower($0)}')
-    version_id=""
-  fi
-
-  case "$id" in
-	  darwin)
-			echo "macos"
-			;;
-    ubuntu)
-      echo "ubuntu${version_id}"
-      ;;
-    debian)
-      echo "debian${version_id}"
-      ;;
-    rhel|redhat)
-      echo "rhel${version_id}"
-      ;;
-    centos)
-      echo "rhel${version_id}"  # Mongo tools usually map centos under rhel
-      ;;
-    amzn|amazon)
-      echo "amazon${version_id}"
-      ;;
-    *)
-      echo "Not supported OS: $id"
-			exit 1
-      ;;
-  esac
-}
-
-get_arch() {
-  arch=$(uname -m)
-
-  case "$arch" in
-    x86_64 | amd64)
-      echo "x86_64"
-      ;;
-    aarch64 | arm64)
-      echo "arm64"
-      ;;
-    armv7l)
-      echo "armv7"
-      ;;
-    i386 | i686)
-      echo "x86"
-      ;;
-    *)
-      echo "$arch"
-      ;;
-  esac
-}
-
-# Clean and correct version sorting
-function sort_versions() {
-  awk -F. '
-    {
-      orig = $0;
-      n1 = $1; n2 = ($2 == "") ? 0 : $2;
-      n3 = ($3 == "") ? 0 : $3;
-      n4 = ($4 == "") ? 0 : $4;
-      printf "%04d.%04d.%04d.%04d %s\n", n1, n2, n3, n4, orig;
-    }
-  ' | sort | awk '{print $2}' | paste -sd' ' -
-}
-
-name=$(get_os_name)
-arch=$(get_arch)
-
-echo "OS: $name"
-echo "Arch: $arch"
-
-# Get versions that have a download matching the OS
-versions=$(eval "$cmd" | jq -r --arg name "$name" --arg arch "$arch" '
-  .versions[]
-  | select(.downloads[] | .name == $name and .arch == $arch)
-  | .version
-' | sort_versions)
-
-echo "$versions"
-
+list_all_versions | sort_versions | xargs echo
