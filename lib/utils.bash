@@ -10,8 +10,8 @@ MONGODB_VERSION_URL="https://s3.amazonaws.com/downloads.mongodb.org/tools/db/ful
 curl_opts=(-fsSL)
 
 fail() {
-	echo -e "asdf-$TOOL_NAME: $*"
-	exit 1
+  echo -e "asdf-$TOOL_NAME: $*"
+  exit 1
 }
 
 get_os_name() {
@@ -32,9 +32,9 @@ get_os_name() {
   fi
 
   case "$id" in
-	  darwin)
-			echo "macos"
-			;;
+    darwin)
+      echo "macos"
+      ;;
     ubuntu)
       echo "ubuntu${version_id}"
       ;;
@@ -94,7 +94,7 @@ list_all_versions() {
   name=$(get_os_name)
   arch=$(get_arch)
 
-	# Get versions that have a download matching the OS
+  # Get versions that have a download matching the OS
   versions=$(curl "${curl_opts[@]}" "$MONGODB_VERSION_URL" | jq -r --arg name "$name" --arg arch "$arch" '.versions[] | select(.downloads[] | .name == $name and .arch == $arch) | .version ')
 
   echo "$versions"
@@ -122,8 +122,8 @@ install_version() {
   local version=$2
   local install_path=$3
 
-	local bin_install_path="$install_path/bin"
-	local download_url=$(get_download_url "$version")
+  local bin_install_path="$install_path/bin"
+  local download_url=$(get_download_url "$version")
   local filename=$(basename $download_url)
 
   local tmp_download_dir=$(mktemp -d -t mongodb-tools_XXXXXX)
