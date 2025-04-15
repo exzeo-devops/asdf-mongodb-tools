@@ -1,6 +1,89 @@
 set -e
 
-git ls-remote --tags --refs "https://github.com/mongodb/mongo-tools" |
-  sed -En -e "s:.*refs/tags/r([0-9]+\.[0-9]+\.[0-9]+)$:\1:p" |
-  sort -V |
-  xargs echo
+set -e
+set -o pipefail
+
+releases_path="https://s3.amazonaws.com/downloads.mongodb.org/tools/db/full.json"
+cmd="curl --retry 10 --retry-delay 2 -s $releases_path"
+
+get_os_name() {
+  if command -v lsb_release &>/dev/null; then
+    lsb_release -si | awk '{print tolower($0)}'
+  elif [ -f /etc/os-release ]; then
+    grep -i '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"' | awk '{print tolower($0)}'
+  elif [ -f /etc/redhat-release ]; then
+    awk '{print tolower($1)}' /etc/redhat-release
+  else
+    uname -s | awk '{print tolower($0)}'
+  fi
+}
+
+get_arch() {
+  arch=$(uname -m)
+
+  case "$arch" in
+    x86_64 | amd64)
+      echo "x86_64"
+      ;;
+    aarch64 | arm64)
+      echo "arm64"
+      ;;
+    armv7l)
+      echo "armv7"
+      ;;
+    i386 | i686)
+      echo "x86"
+      ;;
+    *)
+      echo "$arch"
+      ;;
+  esac
+}
+
+get_os_version() {
+  local version
+
+  if command -v lsb_release &>/dev/null; then
+    version=$(lsb_release -sr)
+  elif [ -f /etc/os-release ]; then
+    version=$(grep -i '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+  elif [ -f /etc/redhat-release ]; then
+    version=$(awk '{print $3}' /etc/redhat-release)
+  else
+    version=$(uname -r)
+  fi
+
+  echo "$version" | tr -cd '[:alnum:]'
+}
+
+function get_name() {
+	os_name=$(get_os_name)
+	os_version=$(get_os_version)
+	echo "$os_name$os_version"
+}
+
+# Clean and correct version sorting
+function sort_versions() {
+  awk -F. '
+    {
+      orig = $0;
+      n1 = $1; n2 = ($2 == "") ? 0 : $2;
+      n3 = ($3 == "") ? 0 : $3;
+      n4 = ($4 == "") ? 0 : $4;
+      printf "%04d.%04d.%04d.%04d %s\n", n1, n2, n3, n4, orig;
+    }
+  ' | sort | awk '{print $2}' | paste -sd' ' -
+}
+
+name=$(get_name)
+arch=$(get_arch)
+
+# Get versions that have a download matching the OS
+versions=$(eval "$cmd" | jq -r --arg name "$name" --arg arch "$arch" '
+  .versions[]
+  | select(.downloads[] | .name == $name and .arch == $arch)
+  | .version
+' | sort_versions)
+
+echo "$versions"
+
