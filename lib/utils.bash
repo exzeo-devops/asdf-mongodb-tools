@@ -153,5 +153,5 @@ install_version() {
 
   echo "Copying binary"
   tar -zxf ${download_path} --directory $tmp_download_dir
-  cp $tmp_download_dir/${filename%.*}/bin ${bin_install_path}
+  cp $tmp_download_dir/${filename%.*}/bin/* ${bin_install_path}
 }
