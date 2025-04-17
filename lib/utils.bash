@@ -2,84 +2,80 @@
 
 set -euo pipefail
 
-# TODO: Ensure this is the correct GitHub homepage where releases can be downloaded for <YOUR TOOL>.
-TOOL_NAME="mongodb-tools"
-
-MONGODB_VERSION_URL="https://s3.amazonaws.com/downloads.mongodb.org/tools/db/full.json"
+# Initialize Variables
+ASDF_MONGODB_TOOLS_OVERWRITE_ARCH=""
+ASDF_MONGODB_TOOLS_OVERWRITE_OS_ID=""
+ASDF_MONGODB_TOOLS_OVERWRITE_OS_VERSION=""
+ASDF_MONGODB_TOOLS_VERSION_URL="https://s3.amazonaws.com/downloads.mongodb.org/tools/db/full.json"
 
 curl_opts=(-fsSL)
 
 fail() {
-  echo -e "asdf-$TOOL_NAME: $*"
-  exit 1
+    echo -e "$*" >&2
+    exit 1
 }
 
 get_os_name() {
-  local id version_id codename
+    local id=""
+    local version_id=""
 
-  if command -v lsb_release &>/dev/null; then
-    id=$(lsb_release -si | awk '{print tolower($0)}')
-    version_id=$(lsb_release -sr | tr -d '.')
-  elif [ -f /etc/os-release ]; then
-    id=$(grep -i '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
-    version_id=$(grep -i '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"' | tr -d '.')
-  elif [ -f /etc/redhat-release ]; then
-    id=$(awk '{print tolower($1)}' /etc/redhat-release)
-    version_id=$(awk '{print $3}' /etc/redhat-release | tr -d '.')
-  else
-    id=$(uname -s | awk '{print tolower($0)}')
-    version_id=""
-  fi
+    if [[ "${ASDF_MONGODB_TOOLS_OVERWRITE_OS_ID}" != "" ]]; then
+        id="${ASDF_MONGODB_TOOLS_OVERWRITE_OS_ID}"
+    fi
 
-  case "$id" in
-    darwin)
-      echo "macos"
-      ;;
-    ubuntu)
-      echo "ubuntu${version_id}"
-      ;;
-    debian)
-      echo "debian${version_id}"
-      ;;
-    rhel|redhat)
-      echo "rhel${version_id}"
-      ;;
-    centos)
-      echo "rhel${version_id}"  # Mongo tools usually map centos under rhel
-      ;;
-    amzn|amazon)
-      echo "amazon${version_id}"
-      ;;
-    *)
-      fail "Not supported OS: $id"
-      ;;
-  esac
+    if [[ "${ASDF_MONGODB_TOOLS_OVERWRITE_OS_VERSION}" != "" ]]; then
+        version_id="${ASDF_MONGODB_TOOLS_OVERWRITE_OS_VERSION}"
+    fi
+
+    if [[ -z "${id}" ]]; then
+        if [ -f /etc/os-release ]; then
+            id=$(grep -i '^ID=' /etc/os-release | cut -d= -f2)
+        else
+            id=$(uname -s | awk '{print tolower($0)}')
+        fi
+    fi
+
+    if [[ -z "${version_id}" ]]; then
+        if [ -f /etc/os-release ]; then
+            version_id=$(grep -i '^VERSION_ID=' /etc/os-release | cut -d= -f2)
+        fi
+    fi
+
+    # Format Version
+    id=$(echo "$id" | tr -d '"' | tr '[:upper:]' '[:lower:]') # Remove quotes and lowercase
+    version_id=$(echo "$version_id" | tr -d '"' | tr -d '.')  # Remove quotes and dots
+
+    case "$id" in
+    darwin) echo "macos" ;;
+    ubuntu) echo "ubuntu${version_id}" ;;
+    debian) echo "debian${version_id}" ;;
+    rhel | redhat) echo "rhel${version_id}" ;;
+    centos) echo "rhel${version_id}" ;;
+    amzn | amazon) echo "amazon${version_id}" ;;
+    *) fail "Not supported OS: $id" ;;
+    esac
 }
 
 get_arch() {
-  arch=$(uname -m)
+    current_architecture="$(uname -m)"
 
-  case "$arch" in
-    x86_64 | amd64)
-      echo "x86_64"
-      ;;
-    aarch64 | arm64)
-      echo "arm64"
-      ;;
-    armv7l)
-      echo "armv7"
-      ;;
-    i386 | i686)
-      echo "x86"
-      ;;
-    *)
-      echo "$arch"
-      ;;
-  esac
+    if [[ "${ASDF_MONGODB_TOOLS_OVERWRITE_ARCH}" != "" ]]; then
+        current_architecture="${ASDF_MONGODB_TOOLS_OVERWRITE_ARCH}"
+    fi
+
+    case "$current_architecture" in
+    x86_64 | amd64) current_architecture="x86_64" ;;
+    armv7l | arm64) current_architecture="arm64" ;;
+    aarch64) current_architecture="aarch64" ;;
+    i386 | i686) current_architecture="x86" ;;
+    *) fail "Unsupported architecture: $current_architecture" ;;
+    esac
+
+    echo "${current_architecture}"
 }
 
 sort_versions() {
-  awk -F. '
+    awk -F. '
     {
       orig = $0;
       n1 = $1; n2 = ($2 == "") ? 0 : $2;
@@ -91,67 +87,76 @@ sort_versions() {
 }
 
 list_all_versions() {
-  name=$(get_os_name)
-  arch=$(get_arch)
+    name=$(get_os_name) || exit 1
+    arch=$(get_arch) || exit 1
 
-  # Get versions that have a download matching the OS
-  versions=$(curl "${curl_opts[@]}" "$MONGODB_VERSION_URL" | jq -r --arg name "$name" --arg arch "$arch" '.versions[] | select(.downloads[] | .name == $name and .arch == $arch) | .version ')
+    # Get versions that have a download matching the OS
+    versions=$(curl "${curl_opts[@]}" "$ASDF_MONGODB_TOOLS_VERSION_URL" | jq -r --arg name "$name" --arg arch "$arch" '.versions[] | select(.downloads[] | .name == $name and .arch == $arch) | .version ')
 
-  echo "$versions"
+    echo "$versions"
 }
 
 get_download_url() {
-  local version="$1"
-  name=$(get_os_name)
-  arch=$(get_arch)
+    local version="$1"
+    name=$(get_os_name) || exit 1
+    arch=$(get_arch) || exit 1
 
-  url=$(curl -s $MONGODB_VERSION_URL |
-    jq -r --arg version "$version" --arg name "$name" --arg arch "$arch" '
-      .versions[]
-      | select(.version == $version)
-      | .downloads[]
-      | select(.name == $name and .arch == $arch)
-      | .archive.url
-    ')
+    json=$(curl "${curl_opts[@]}" "$ASDF_MONGODB_TOOLS_VERSION_URL") || fail "Failed to fetch JSON from $ASDF_MONGODB_TOOLS_VERSION_URL"
+    url=$(echo "$json" | jq -r --arg version "$version" --arg name "$name" --arg arch "$arch" '.versions[] | select(.version == $version) | .downloads[] | select(.name == $name and .arch == $arch) | .archive.url ') || fail "Failed to parse JSON for version=$version name=$name arch=$arch"
 
-  echo "$url"
+    echo "$url"
 }
 
 install_version() {
-  local install_type=$1
-  local version=$2
-  local install_path=$3
+    local install_type=$1
+    local version=$2
+    local install_path=$3
 
-  local bin_install_path="$install_path/bin"
-  local download_url=$(get_download_url "$version")
-  local filename=$(basename $download_url)
+    local download_url
+    local filename
+    local tmp_download_dir
+    local tmp_download_path
 
-  local tmp_download_dir=$(mktemp -d -t mongodb-tools_XXXXXX)
-  local download_path="$tmp_download_dir/$filename"
+    if [ "$install_type" != "version" ]; then
+        fail "asdf-mongodb-tools supports release installs only"
+    fi
 
-  echo "Downloading mongodb tools from ${download_url} to ${download_path}"
+    (
+        # Get download url from mongodb
+        download_url="$(get_download_url "$version")"
 
-  # capture error message from curl in memory
-  curl --retry 10 --retry-delay 2 -fLo $download_path $download_url 2> >(tee /tmp/curl_error >&2)
-  ERROR=$(</tmp/curl_error)
+        # Check if the download URL is valid
+        if [[ -z "$download_url" ]]; then
+            fail "Unable to locate valid download url on $(get_os_name) | $(get_arch) for v$version"
+        fi
 
-  # retry with http1.1 if http2 error
-  if [[ $ERROR == *"HTTP/2 stream 0 was not closed cleanly"* ]]; then
-    echo $ERROR
-    echo "Retrying with --http1.1"
-    curl --http1.1 --retry 10 --retry-delay 2 -fLo $download_path $download_url
-  fi
+        # Get filename from the URL
+        filename="$(basename "${download_url}")"
 
-  if [ $? -ne 0 ]; then
-    echo $ERROR
-    echo "Failed to download mongodb tools from ${download_url}"
-    exit 1
-  fi
+        # Create a temporary directory in the system's temp directory
+        tmp_download_dir="$(mktemp -d -t mongodb-tools_XXXXXX)"
 
-  echo "Creating bin directory"
-  mkdir -p "${bin_install_path}"
+        # Temporary download path with the filename
+        tmp_download_path="${tmp_download_dir}/${filename}"
 
-  echo "Copying binary"
-  tar -zxf ${download_path} --directory $tmp_download_dir
-  cp $tmp_download_dir/${filename%.*}/bin/* ${bin_install_path}
+        echo "Downloading mongodb tools from ${download_url}"
+
+        # Create the install path if it doesn't exist
+        mkdir -p "${install_path}"
+
+        # Download the file to the temporary directory
+        curl -fLo "${tmp_download_path}" "${download_url}"
+
+        # Extracting to temp folder
+        tar -zxf "${tmp_download_path}" --directory "${tmp_download_dir}"
+
+        # Move the binary folder to the install_path
+        mv "${tmp_download_dir}/${filename%.*}/bin" "${install_path}/"
+
+        echo "asdf-mongodb-tools v$version installation was successful!"
+    ) || (
+        # Cleanup
+        rm -rf "${install_path}"
+        fail "asdf-mongodb-tools v$version installation failed!"
+    )
 }
