@@ -1,2 +1,2 @@
 test:
-	asdf plugin test mongodb-tools .
+	asdf plugin test mongodb-tools .2
