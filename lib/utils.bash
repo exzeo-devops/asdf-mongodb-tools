@@ -27,7 +27,7 @@ get_os_name() {
         version_id="${ASDF_MONGODB_TOOLS_OVERWRITE_OS_VERSION}"
     fi
 
-    if [[ "${id}" == "" ]]; then
+    if [[ -z "${id}" ]]; then
         if [ -f /etc/os-release ]; then
             id=$(grep -i '^ID=' /etc/os-release | cut -d= -f2)
         else
@@ -35,14 +35,14 @@ get_os_name() {
         fi
     fi
 
-    if [[ "${version_id}" == "" ]]; then
+    if [[ -z "${version_id}" ]]; then
         if [ -f /etc/os-release ]; then
             version_id=$(grep -i '^VERSION_ID=' /etc/os-release | cut -d= -f2)
         fi
     fi
 
     # Validate
-    if [[ "${id}" == "" ]]; then
+    if [[ -z "${id}" ]]; then
         fail "Unable to determine OS"
     fi
 
@@ -131,7 +131,7 @@ install_version() {
         download_url="$(get_download_url "$version")"
 
         # Check if the download URL is valid
-        if [[ "$download_url" == "" ]]; then
+        if [[ -z "$download_url" ]]; then
             fail "Unable to locate valid download url on $(get_os_name) | $(get_arch) for v$version"
         fi
 
