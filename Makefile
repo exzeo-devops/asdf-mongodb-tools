@@ -1,2 +1,3 @@
+.PHONY: test
 test:
-	asdf plugin test mongodb-tools .2
+	bats -r ./test --verbose-run
