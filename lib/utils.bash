@@ -31,25 +31,19 @@ get_os_name() {
         if [ -f /etc/os-release ]; then
             id=$(grep -i '^ID=' /etc/os-release | cut -d= -f2)
         else
-            fail "Unsupported OS: /etc/os-release not found"
+            id=$(uname -s | awk '{print tolower($0)}')
         fi
     fi
 
     if [[ "${version_id}" == "" ]]; then
         if [ -f /etc/os-release ]; then
             version_id=$(grep -i '^VERSION_ID=' /etc/os-release | cut -d= -f2)
-        else
-            fail "Unsupported OS: /etc/os-release not found"
         fi
     fi
 
     # Validate
     if [[ "${id}" == "" ]]; then
         fail "Unable to determine OS"
-    fi
-
-    if [[ "${version_id}" == "" ]]; then
-        fail "Unable to determine OS version"
     fi
 
     # Format Version
