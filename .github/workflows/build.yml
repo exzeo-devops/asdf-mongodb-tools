@@ -21,8 +21,6 @@ jobs:
         run: |
           uname -m
           uname -s | awk '{print tolower($0)}'
-          ls /etc
-          cat /etc/os-release
 
       # - name: asdf_plugin_test
       #   uses: asdf-vm/actions/plugin-test@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3.0.2
