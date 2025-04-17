@@ -41,11 +41,6 @@ get_os_name() {
         fi
     fi
 
-    # Validate
-    if [[ -z "${id}" ]]; then
-        fail "Unable to determine OS"
-    fi
-
     # Format Version
     id=$(echo "$id" | tr -d '"' | tr '[:upper:]' '[:lower:]') # Remove quotes and lowercase
     version_id=$(echo "$version_id" | tr -d '"' | tr -d '.')  # Remove quotes and dots
