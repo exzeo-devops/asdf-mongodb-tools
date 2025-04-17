@@ -19,7 +19,6 @@ jobs:
     steps:
       - name: Check
         run: |
-          lsb_release
           uname -m
           uname -s | awk '{print tolower($0)}'
           ls /etc
